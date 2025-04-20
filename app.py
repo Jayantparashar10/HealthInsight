@@ -1,8 +1,14 @@
 import streamlit as st
-from agent import read_file, preprocess_text, analyze_report
 from groq import Groq
 import os
 import uuid
+import io
+import base64
+from PIL import Image
+import PyPDF2
+from docx import Document
+import re
+import xml.etree.ElementTree as ET
 
 # Initialize Groq client with API key from Streamlit secrets
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -11,17 +17,137 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 st.set_page_config(page_title="HealthInsight", page_icon="🏥", layout="wide")
 
 # Session state initialization
-if 'uploaded_file' not in st.session_state:
-    st.session_state.uploaded_file = None
-if 'report_text' not in st.session_state:
-    st.session_state.report_text = ""
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
+if 'report_text' not in st.session_state:
+    st.session_state.report_text = None
+if 'uploaded_file_name' not in st.session_state:
+    st.session_state.uploaded_file_name = None
+if 'uploaded_image' not in st.session_state:
+    st.session_state.uploaded_image = None
 
-def ask_question(question, report_text):
-    """Ask a question about the medical report using Groq API"""
-    system_prompt = """
-    You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+def read_file(file_path):
+    """Read medical report from different file formats"""
+    if file_path.endswith('.pdf'):
+        with open(file_path, 'rb') as file:
+            reader = PyPDF2.PdfReader(file)
+            text = ''.join([page.extract_text() for page in reader.pages])
+            return text
+        
+    elif file_path.endswith('.docx'):
+        doc = Document(file_path)
+        return '\n'.join([para.text for para in doc.paragraphs])
+    
+    elif file_path.endswith('.txt'):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    
+    elif file_path.endswith('.xml'):
+        try:
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+            return xml_to_text(root)
+        except ET.ParseError as e:
+            raise ValueError(f"Invalid XML file: {str(e)}")
+    
+    else:
+        raise ValueError("Unsupported file format. Use PDF, DOCX, TXT, or XML")
+
+def xml_to_text(element):
+    """Convert XML elements to readable text"""
+    text_parts = []
+    
+    # Handle common medical XML structures
+    if element.tag.endswith('ClinicalDocument'):
+        # Handle HL7 CDA format
+        for section in element.findall('.//section'):
+            title = section.find('title')
+            text = section.find('text')
+            if title is not None:
+                text_parts.append(title.text.strip())
+            if text is not None:
+                text_parts.append(text.text.strip())
+    else:
+        # Generic XML handling
+        for child in element:
+            if child.text and child.text.strip():
+                text_parts.append(child.text.strip())
+            text_parts.extend(xml_to_text(child))
+    
+    return '\n'.join(filter(None, text_parts))
+
+def preprocess_text(text):
+    """Clean and preprocess medical report text"""
+    # Remove multiple spaces and newlines
+    text = re.sub(r'\s+', ' ', text)
+    # Remove sensitive identifiers (basic example)
+    text = re.sub(r'Patient ID:\s*\d+', '[REDACTED]', text)
+    return text.strip()
+
+def analyze_report(report_text):
+    """Analyze medical report using Groq API"""
+    system_prompt = """You are a medical expert AI assistant. Analyze the provided medical report and:
+    1. Identify potential illnesses or health issues
+    2. Highlight critical values that need immediate attention
+    3. Suggest recommended medications (include generic names)
+    4. Recommend lifestyle changes
+    5. Mention necessary follow-up tests
+    6. Always advise consulting a healthcare professional
+
+    Present results in clear sections with markdown formatting. Use conservative medical judgment."""
+
+    try:
+        completion = client.chat.completions.create(
+            model="llama-4-scout-17b-16e-instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": report_text}
+            ],
+            temperature=0.5,
+            max_completion_tokens=1024,
+            top_p=0.9,
+            stream=False,
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Error analyzing report: {e}"
+
+def process_image(image):
+    """Process and analyze medical image using Groq API with Claude's vision capabilities"""
+    # Convert the image to a base64 string
+    buffered = io.BytesIO()
+    image.save(buffered, format="JPEG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    system_prompt = """You are a medical imaging AI assistant. Analyze the provided medical image and describe what you see.
+    Be thorough but conservative in your assessment. Always note that:
+    1. This is not a diagnostic tool
+    2. The analysis may have limitations based on image quality
+    3. The patient should consult with a healthcare professional for proper diagnosis
+
+    Present your observations in clear, organized sections."""
+
+    try:
+        # For models that support vision
+        completion = client.chat.completions.create(
+            model="claude-3-5-sonnet-20240620",  # Using Claude for vision capabilities
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": [
+                    {"type": "text", "text": "Please analyze this medical image:"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_str}"}}
+                ]}
+            ],
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Error analyzing image: {e}"
+
+def chat_with_context(message, report_text=None, image=None):
+    """Generate a response based on the message and any medical context"""
+    system_prompt = """ You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
     Guidelines:
     
     Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
@@ -55,16 +181,25 @@ def ask_question(question, report_text):
     Privacy: Do not discuss or emphasize any personal identifiers that may be present in the report.
     
     
-    Your responses should be informative, accurate, and always prioritize the user's health and safety.
-    """
+    Your responses should be informative, accurate, and always prioritize the user's health and safety. """
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Add context about uploaded content
+    context = "User query: " + message
+    
+    if report_text:
+        context += "\n\nMedical report content: " + report_text
+        
+    if image:
+        context += "\n\nNote: User has also uploaded a medical image."
+    
+    messages.append({"role": "user", "content": context})
     
     try:
         completion = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Report: {report_text}\n\nQuestion: {question}"}
-            ],
+            messages=messages,
             temperature=0.5,
             max_completion_tokens=1024,
             top_p=0.9,
@@ -72,81 +207,140 @@ def ask_question(question, report_text):
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error processing question: {str(e)}"
+        return f"Error generating response: {e}"
+
+def save_uploaded_file(uploaded_file):
+    """Save an uploaded file temporarily and return the path"""
+    file_extension = uploaded_file.name.split('.')[-1].lower()
+    temp_file_path = f"temp_{uuid.uuid4()}.{file_extension}"
+    
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    return temp_file_path
 
 def main():
-    st.title("HealthInsight")
-    st.markdown("Upload your medical report and ask questions about it. Supports PDF, DOCX, TXT, and XML formats.")
-
-    # File upload section
-    st.subheader("Upload Medical Report")
-    uploaded_file = st.file_uploader(
-        "Choose a medical report file",
-        type=['pdf', 'docx', 'txt', 'xml'],
-        key="file_uploader"
-    )
-
-    if uploaded_file is not None:
-        # Save uploaded file temporarily
-        file_extension = uploaded_file.name.split('.')[-1]
-        temp_file_path = f"temp_{uuid.uuid4()}.{file_extension}"
-        
-        with open(temp_file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        try:
-            # Read and preprocess the file
-            raw_text = read_file(temp_file_path)
-            st.session_state.report_text = preprocess_text(raw_text)
-            st.session_state.uploaded_file = uploaded_file.name
-            
-            # Display extracted text
-            with st.expander("View Extracted Report Text"):
-                st.text_area(
-                    "Extracted Text",
-                    st.session_state.report_text,
-                    height=200,
-                    disabled=True
-                )
-            
-            # Display automated analysis
-            st.subheader("Automated Report Analysis")
-            with st.spinner("Analyzing report..."):
-                analysis_placeholder = st.empty()
-                # Since analyze_report prints directly, we'll capture output differently
-                import sys
-                from io import StringIO
-                
-                old_stdout = sys.stdout
-                sys.stdout = mystdout = StringIO()
-                analyze_report(st.session_state.report_text)
-                sys.stdout = old_stdout
-                analysis_placeholder.markdown(mystdout.getvalue())
-                
-        except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+    # App title and description
+    st.title("🏥 HealthInsight")
+    st.markdown("Chat with or without medical reports and images. Get insights about your health information.")
     
-    # Question input section
-    if st.session_state.report_text:
-        st.subheader("Ask Questions About Your Report")
-        question = st.text_input("Enter your question:")
+    # Sidebar for file uploads and settings
+    with st.sidebar:
+        st.header("Upload Medical Information")
         
-        if question:
-            with st.spinner("Processing your question..."):
-                answer = ask_question(question, st.session_state.report_text)
-                st.session_state.chat_history.append({"question": question, "answer": answer})
+        # Medical report upload
+        report_tab, image_tab = st.tabs(["Medical Report", "Medical Image"])
         
-        # Display chat history
-        if st.session_state.chat_history:
-            st.subheader("Conversation History")
-            for chat in st.session_state.chat_history:
-                st.markdown(f"**Q: {chat['question']}**")
-                st.markdown(f"A: {chat['answer']}")
-                st.markdown("---")
+        with report_tab:
+            report_file = st.file_uploader(
+                "Upload a medical report",
+                type=['pdf', 'docx', 'txt', 'xml'],
+                key="report_uploader"
+            )
+            
+            if report_file:
+                temp_file_path = save_uploaded_file(report_file)
+                
+                try:
+                    # Process the file
+                    raw_text = read_file(temp_file_path)
+                    st.session_state.report_text = preprocess_text(raw_text)
+                    st.session_state.uploaded_file_name = report_file.name
+                    
+                    st.success(f"✅ Report loaded: {report_file.name}")
+                    
+                    # Show preview
+                    with st.expander("Report Preview"):
+                        preview_text = st.session_state.report_text[:300] + "..." if len(st.session_state.report_text) > 300 else st.session_state.report_text
+                        st.text_area("Content", preview_text, height=150, disabled=True)
+                    
+                    # Analyze button
+                    if st.button("Analyze Report"):
+                        with st.spinner("Analyzing report..."):
+                            analysis = analyze_report(st.session_state.report_text)
+                            # Add system message to chat
+                            st.session_state.chat_history.append({
+                                "role": "assistant", 
+                                "content": f"📋 **Report Analysis**\n\n{analysis}"
+                            })
+                            st.success("Analysis complete! Check the chat area.")
+                
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+                finally:
+                    # Clean up
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+        
+        with image_tab:
+            image_file = st.file_uploader(
+                "Upload a medical image",
+                type=['png', 'jpg', 'jpeg'],
+                key="image_uploader"
+            )
+            
+            if image_file:
+                try:
+                    image = Image.open(image_file)
+                    st.session_state.uploaded_image = image
+                    st.image(image, caption="Uploaded image", use_column_width=True)
+                    
+                    # Analyze button
+                    if st.button("Analyze Image"):
+                        with st.spinner("Analyzing image..."):
+                            analysis = process_image(image)
+                            # Add system message to chat
+                            st.session_state.chat_history.append({
+                                "role": "assistant", 
+                                "content": f"🖼️ **Image Analysis**\n\n{analysis}"
+                            })
+                            st.success("Analysis complete! Check the chat area.")
+                
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+        
+        # Clear button
+        if st.button("Clear All Uploads"):
+            st.session_state.report_text = None
+            st.session_state.uploaded_file_name = None
+            st.session_state.uploaded_image = None
+            st.success("All uploads cleared!")
+    
+    # Main chat interface
+    st.header("💬 Chat")
+    
+    # Display chat messages
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    # Chat input
+    prompt = "Ask about your health or uploaded medical information..."
+    user_message = st.chat_input(prompt)
+    
+    if user_message:
+        # Add user message to chat
+        with st.chat_message("user"):
+            st.markdown(user_message)
+        st.session_state.chat_history.append({"role": "user", "content": user_message})
+        
+        # Generate response
+        with st.spinner("Generating response..."):
+            response = chat_with_context(
+                user_message,
+                report_text=st.session_state.report_text,
+                image=st.session_state.uploaded_image
+            )
+        
+        # Display response
+        with st.chat_message("assistant"):
+            st.markdown(response)
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
+    
+    # Option to clear chat history
+    if st.session_state.chat_history and st.button("Clear Chat History"):
+        st.session_state.chat_history = []
+        st.success("Chat history cleared!")
 
 if __name__ == "__main__":
     main()

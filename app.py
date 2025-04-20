@@ -86,68 +86,8 @@ def preprocess_text(text):
 
 def analyze_report(report_text):
     """Analyze medical report using Groq API"""
-    system_prompt = """You are a medical expert AI assistant. Analyze the provided medical report and:
-    1. Identify potential illnesses or health issues
-    2. Highlight critical values that need immediate attention
-    3. Suggest recommended medications (include generic names)
-    4. Recommend lifestyle changes
-    5. Mention necessary follow-up tests
-    6. Always advise consulting a healthcare professional
-
-    Present results in clear sections with markdown formatting. Use conservative medical judgment."""
-
-    try:
-        completion = client.chat.completions.create(
-            model="llama-4-scout-17b-16e-instruct",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": report_text}
-            ],
-            temperature=0.5,
-            max_completion_tokens=1024,
-            top_p=0.9,
-            stream=False,
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"Error analyzing report: {e}"
-
-def process_image(image):
-    """Process and analyze medical image using Groq API with Claude's vision capabilities"""
-    # Convert the image to a base64 string
-    buffered = io.BytesIO()
-    image.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    
-    system_prompt = """You are a medical imaging AI assistant. Analyze the provided medical image and describe what you see.
-    Be thorough but conservative in your assessment. Always note that:
-    1. This is not a diagnostic tool
-    2. The analysis may have limitations based on image quality
-    3. The patient should consult with a healthcare professional for proper diagnosis
-
-    Present your observations in clear, organized sections."""
-
-    try:
-        # For models that support vision
-        completion = client.chat.completions.create(
-            model="claude-3-5-sonnet-20240620",  # Using Claude for vision capabilities
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": [
-                    {"type": "text", "text": "Please analyze this medical image:"},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_str}"}}
-                ]}
-            ],
-            temperature=0.3,
-            max_tokens=1024,
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"Error analyzing image: {e}"
-
-def chat_with_context(message, report_text=None, image=None):
-    """Generate a response based on the message and any medical context"""
-    system_prompt = """ You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+    # Using the new system prompt for consistency
+    system_prompt = """You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
     Guidelines:
     
     Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
@@ -181,11 +121,105 @@ def chat_with_context(message, report_text=None, image=None):
     Privacy: Do not discuss or emphasize any personal identifiers that may be present in the report.
     
     
-    Your responses should be informative, accurate, and always prioritize the user's health and safety. """
+    Your responses should be informative, accurate, and always prioritize the user's health and safety."""
+
+    try:
+        completion = client.chat.completions.create(
+            model="llama-4-scout-17b-16e-instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}
+            ],
+            temperature=0.5,
+            max_completion_tokens=1024,
+            top_p=0.9,
+            stream=False,
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Error analyzing report: {e}"
+
+def process_image(image):
+    """Process and analyze medical image using Groq API"""
+    # Convert the image to a base64 string
+    buffered = io.BytesIO()
+    image.save(buffered, format="JPEG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
     
-    messages = [{"role": "system", "content": system_prompt}]
+    # Using the new system prompt for consistency
+    system_prompt = """You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+    Guidelines:
     
-    # Add context about uploaded content
+    Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
+    
+    Tone: Maintain a supportive and empathetic tone, acknowledging that medical reports can be concerning.
+    
+    Analysis: I've been asked to analyze a medical image. Since I have limited image analysis capabilities, I'll be cautious in my assessment.
+    
+    Clarity: Use clear, non-technical language. Define medical terms when necessary.
+    
+    Limitations: Image analysis is severely limited. The user should always consult a healthcare professional for proper diagnosis.
+    
+    Your responses should be informative, accurate, and always prioritize the user's health and safety."""
+
+    try:
+        # Note: For image analysis, we need a model with vision capabilities
+        # If Groq doesn't support this directly, you might need to use a different provider
+        # or extract features from the image first
+        completion = client.chat.completions.create(
+            model="llama-4-scout-17b-16e-instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Please analyze this medical image (converted to text description due to model limitations)"}
+            ],
+            temperature=0.5,
+            max_completion_tokens=1024,
+            top_p=0.9,
+            stream=False,
+        )
+        return completion.choices[0].message.content + "\n\n*Note: This model has limited image analysis capabilities. For accurate image analysis, please consult a medical professional.*"
+    except Exception as e:
+        return f"Error analyzing image: {e}"
+
+def chat_with_context(message, report_text=None, image=None):
+    """Generate a response based on the message and any medical context"""
+    # Updated system prompt as requested
+    system_prompt = """You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+    Guidelines:
+    
+    Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
+    
+    Tone: Maintain a supportive and empathetic tone, acknowledging that medical reports can be concerning.
+    
+    Analysis: Analyze the report text to identify key information relevant to the user's question.  
+    
+    If the question is about:  
+    Potential illnesses: List possible conditions mentioned or suggested by the report.  
+    Critical values: Highlight any abnormal results and explain their significance.  
+    Medications: Mention any prescribed or recommended medications, including generic names.  
+    Lifestyle changes: Suggest any lifestyle modifications indicated in the report.  
+    Follow-up tests: Note any recommended future tests or check-ups.
+    
+    
+    For general questions, provide a summary of the report's main findings.
+    
+    
+    Clarity: Use clear, non-technical language. Define medical terms when necessary.
+    
+    Urgent Concerns: If the report indicates a serious condition, urge the user to seek immediate medical attention.
+    
+    Limitations:  
+    
+    If the report text is unclear or seems incomplete, inform the user that the analysis might be limited and suggest they provide a clearer version or consult their doctor.  
+    If you cannot answer the question based on the report, say:"I'm sorry, but I cannot provide an answer to that question based on the information in the report. Please consult your doctor for further assistance."  
+    If you are unsure about any information, state that clearly and suggest the user verify with their doctor.
+    
+    
+    Privacy: Do not discuss or emphasize any personal identifiers that may be present in the report.
+    
+    
+    Your responses should be informative, accurate, and always prioritize the user's health and safety."""
+    
     context = "User query: " + message
     
     if report_text:
@@ -194,12 +228,13 @@ def chat_with_context(message, report_text=None, image=None):
     if image:
         context += "\n\nNote: User has also uploaded a medical image."
     
-    messages.append({"role": "user", "content": context})
-    
     try:
         completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=messages,
+            model="llama-4-scout-17b-16e-instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
             temperature=0.5,
             max_completion_tokens=1024,
             top_p=0.9,

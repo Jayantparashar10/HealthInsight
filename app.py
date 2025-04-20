@@ -14,19 +14,19 @@ import xml.etree.ElementTree as ET
 st.set_page_config(page_title="HealthInsight", page_icon="🏥", layout="wide")
 
 # Function for GitHub Models API chat completion
-def github_model_chat_completion(messages, model="Llama-3-2-90B-Vision-Instruct", temperature=0.5, max_tokens=1024, top_p=0.9):
-    url = "https://models.github.ai/inference/chat/completions"
+def github_model_chat_completion(messages, temperature=0.5, max_tokens=1024, top_p=0.9):
+    url = "https://api.github.com/models/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['GITHUB_MODELS_TOKEN']}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
     payload = {
-        "model": model,
+        "model": "azureml-meta/Llama-3-2-90B-Vision-Instruct",
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "top_p": top_p,
-        "stream": False
+        "top_p": top_p
     }
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()

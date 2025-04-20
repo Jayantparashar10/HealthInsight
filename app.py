@@ -91,8 +91,6 @@ def analyze_report(report_text):
 You are a doctor. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
 Guidelines:
 
-Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
-
 Tone: Maintain a supportive and empathetic tone, acknowledging that medical reports can be concerning.
 
 Analysis: Analyze the report text to identify key information relevant to the user's question.  
@@ -153,7 +151,6 @@ def process_image(image):
 You are a doctor specialized in analyzing medical images (e.g., X-rays, MRIs, CT scans, ultrasounds). Your role is to provide expert insights based on the visual data from the uploaded medical images.
 Guidelines:
 
-Disclaimer: Always start your response with:"I am an AI doctor specialized in medical image analysis, but I am not a substitute for a human healthcare professional. For personalized diagnosis or treatment, please consult your doctor or a qualified radiologist."
 
 Tone: Maintain a professional, supportive, and empathetic tone, acknowledging that medical imaging results can be concerning.
 
@@ -213,8 +210,6 @@ def chat_with_context(message, report_text=None, image=None):
     system_prompt = """
 You are a doctor. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
 Guidelines:
-
-Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
 
 Tone: Maintain a supportive and empathetic tone, acknowledging that medical reports can be concerning.
 

@@ -125,7 +125,7 @@ def analyze_report(report_text):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-4-scout-17b-16e-instruct",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}

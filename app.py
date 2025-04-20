@@ -29,8 +29,11 @@ def github_model_chat_completion(messages, temperature=0.5, max_tokens=1024, top
     }
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
-# Streamlit page configuration
+    # Streamlit page configuration
+    completion = response.json()
+    
+    # Return the content in the format you requested
+    return completion["choices"][0]["message"]["content"]
 st.set_page_config(page_title="HealthInsight", page_icon="ðŸ¥", layout="wide")
 
 # Session state initialization

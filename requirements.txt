@@ -3,5 +3,6 @@ groq
 PyPDF2
 python-docx
 python-dotenv
-st-multimodal-chatinput
+lxml
 pillow
+pytesseract

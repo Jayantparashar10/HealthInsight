@@ -167,7 +167,7 @@ def process_image(image):
         # If Groq doesn't support this directly, you might need to use a different provider
         # or extract features from the image first
         completion = client.chat.completions.create(
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical image (converted to text description due to model limitations)"}

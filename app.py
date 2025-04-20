@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 st.set_page_config(page_title="HealthInsight", page_icon="🏥", layout="wide")
 
 # Function for GitHub Models API chat completion
-def github_model_chat_completion(messages, model="meta-llama/llama-3-8b-instruct", temperature=0.5, max_tokens=1024, top_p=0.9):
+def github_model_chat_completion(messages, model="Llama-3-2-90B-Vision-Instruct", temperature=0.5, max_tokens=1024, top_p=0.9):
     url = "https://models.github.ai/inference/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['GITHUB_MODELS_TOKEN']}",

@@ -150,7 +150,7 @@ Your responses should be informative, accurate, and always prioritize the user's
             max_tokens=1024,
             top_p=0.9
         )
-        return completion.choices[0].message.content
+        
     except Exception as e:
         return f"Error analyzing report: {e}"
 
@@ -213,7 +213,6 @@ Your responses should be informative, accurate, and always prioritize the user's
             max_tokens=1024,
             top_p=0.9
         )
-        return completion.choices[0].message.content + "\n\n*Note: This model has limited image analysis capabilities. For accurate image analysis, please consult a medical professional.*"
     except Exception as e:
         return f"Error analyzing image: {e}"
 
@@ -274,7 +273,7 @@ Your responses should be informative, accurate, and always prioritize the user's
             max_tokens=1024,
             top_p=0.9
         )
-        return completion.choices[0].message.content
+        
     except Exception as e:
         return f"Error generating response: {e}"
 

@@ -279,7 +279,7 @@ def save_uploaded_file(uploaded_file):
 
 def main():
     # App title and description
-    st.title("ðŸ¥ HealthInsight")
+    st.title("HealthInsight")
     st.markdown("Chat with or without medical reports and images. Get insights about your health information.")
     
     # Sidebar for file uploads and settings
@@ -365,7 +365,7 @@ def main():
             st.success("All uploads cleared!")
     
     # Main chat interface
-    st.header("ðŸ’¬ Chat")
+    st.header("Chat")
     
     # Display chat messages
     for message in st.session_state.chat_history:

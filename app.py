@@ -88,7 +88,7 @@ def analyze_report(report_text):
     """Analyze medical report using Groq API"""
     # Using the new system prompt for consistency
     system_prompt = """
-You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+You are a doctor. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
 Guidelines:
 
 Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
@@ -151,7 +151,7 @@ def process_image(image):
     
     # Using the new system prompt for consistency
     system_prompt = """
-You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+You are a doctor. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
 Guidelines:
 
 Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."
@@ -212,7 +212,7 @@ def chat_with_context(message, report_text=None, image=None):
     """Generate a response based on the message and any medical context"""
     # Updated system prompt as requested
     system_prompt = """
-You are an AI medical assistant. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
+You are a doctor. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
 Guidelines:
 
 Disclaimer: Always start your response with:"I am an AI medical assistant, not a doctor. For personalized medical advice, please consult a healthcare professional."

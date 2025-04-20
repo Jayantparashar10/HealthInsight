@@ -10,15 +10,11 @@ import re
 import xml.etree.ElementTree as ET
 import base64
 
-# Initialize Azure OpenAI client with environment variables or secrets
-endpoint = os.getenv("ENDPOINT_URL", st.secrets.get("ENDPOINT_URL", "https://ai-staff.openai.azure.com/"))
-deployment = os.getenv("DEPLOYMENT_NAME", st.secrets.get("DEPLOYMENT_NAME", "gpt-4o"))
-subscription_key = os.getenv("AZURE_OPENAI_API_KEY", st.secrets.get("AZURE_OPENAI_API_KEY", "REPLACE_WITH_YOUR_KEY_VALUE_HERE"))
-
+# Initialize Azure OpenAI client with Streamlit secrets
 client = AzureOpenAI(
-    azure_endpoint=endpoint,
-    api_key=subscription_key,
-    api_version="2025-01-01-preview",
+    azure_endpoint=st.secrets["azure_openai"]["ENDPOINT_URL"],
+    api_key=st.secrets["azure_openai"]["AZURE_OPENAI_API_KEY"],
+    api_version=st.secrets["azure_openai"]["API_VERSION"],
 )
 
 # Streamlit page configuration
@@ -121,7 +117,7 @@ Your responses should be informative, accurate, and always prioritize the user's
 
     try:
         completion = client.chat.completions.create(
-            model=deployment,
+            model=st.secrets["azure_openai"]["DEPLOYMENT_NAME"],
             messages=[
                 {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
                 {"role": "user", "content": [{"type": "text", "text": "Please analyze this medical report and provide a comprehensive summary: " + report_text}]}
@@ -178,7 +174,7 @@ Your responses should be informative, accurate, and always prioritize the user's
 
     try:
         completion = client.chat.completions.create(
-            model=deployment,
+            model=st.secrets["azure_openai"]["DEPLOYMENT_NAME"],
             messages=[
                 {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
                 {
@@ -265,7 +261,7 @@ Your responses should be informative, accurate, and always prioritize the user's
     
     try:
         completion = client.chat.completions.create(
-            model=deployment,
+            model=st.secrets["azure_openai"]["DEPLOYMENT_NAME"],
             messages=messages,
             max_tokens=800,
             temperature=0.7,

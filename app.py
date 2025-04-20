@@ -60,7 +60,7 @@ def ask_question(question, report_text):
     
     try:
         completion = client.chat.completions.create(
-            model="mixtral-8x7b-32768",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Report: {report_text}\n\nQuestion: {question}"}

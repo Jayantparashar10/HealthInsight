@@ -1,5 +1,5 @@
 import streamlit as st
-import requests
+from groq import Groq
 import os
 import uuid
 import io
@@ -10,27 +10,11 @@ from docx import Document
 import re
 import xml.etree.ElementTree as ET
 
-# Streamlit page configuration
-st.set_page_config(page_title="HealthInsight", page_icon="🏥", layout="wide")
+# Initialize Groq client with API key from Streamlit secrets
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Function for GitHub Models API chat completion
-def github_model_chat_completion(messages, temperature=0.5, max_tokens=1024, top_p=0.9):
-    url = "https://api.github.com/models/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {st.secrets['GITHUB_MODELS_TOKEN']}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-    payload = {
-        "model": "azureml-meta/Llama-3-2-90B-Vision-Instruct",
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "top_p": top_p
-    }
-    response = requests.post(url, headers=headers, json=payload)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+# Streamlit page configuration
+st.set_page_config(page_title="HealthInsight", page_icon="ðŸ¥", layout="wide")
 
 # Session state initialization
 if 'chat_history' not in st.session_state:
@@ -101,7 +85,7 @@ def preprocess_text(text):
     return text.strip()
 
 def analyze_report(report_text):
-    """Analyze medical report using GitHub Models API"""
+    """Analyze medical report using Groq API"""
     # Using the new system prompt for consistency
     system_prompt = """
 You are a doctor. Your role is to help users understand their medical reports by answering their questions based on the provided report text.
@@ -133,32 +117,37 @@ If the report text is unclear or seems incomplete, inform the user that the anal
 If you cannot answer the question based on the report, say:"I'm sorry, but I cannot provide an answer to that question based on the information in the report. Please consult your doctor for further assistance."  
 
 
-Privacy: Do not discuss or emphasize any personal identifiers that may be present in the report.... Your responses should be informative, accurate, and always prioritize the user's health and safety.
+Privacy: Do not discuss or emphasize any personal identifiers that may be present in the report.
+
+
+Your responses should be informative, accurate, and always prioritize the user's health and safety.
 """
 
     try:
-        return github_model_chat_completion(
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}
             ],
-            model="meta-llama/llama-3-8b-instruct",
             temperature=0.5,
-            max_tokens=1024,
-            top_p=0.9
+            max_completion_tokens=1024,
+            top_p=0.9,
+            stream=False,
         )
+        return completion.choices[0].message.content
     except Exception as e:
         return f"Error analyzing report: {e}"
 
 def process_image(image):
-    """Process and analyze medical image using GitHub Models API"""
+    """Process and analyze medical image using Groq API"""
     # Convert the image to a base64 string
     buffered = io.BytesIO()
     image.save(buffered, format="JPEG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
     
     # Using the new system prompt for consistency
-    system_prompt = """
+    system_prompt = """System Prompt for Medical Image Analysis
 You are a doctor specialized in analyzing medical images (e.g., X-rays, MRIs, CT scans, ultrasounds). Your role is to provide expert insights based on the visual data from the uploaded medical images.
 Guidelines:
 
@@ -190,20 +179,28 @@ If you cannot identify a condition or answer the question based on the image, sa
 If you are unsure about any findings (e.g., rare conditions, treatment options), state that clearly and suggest the user verify with a medical professional.
 
 
-Privacy: Do not discuss or emphasize any personal identifiers that may be present in the image or associated data.... Your responses should be informative, accurate, and always prioritize the user's health and safety. Provide your analysis based solely on the visual content of the medical image, avoiding speculation beyond what is visually evident.
+Privacy: Do not discuss or emphasize any personal identifiers that may be present in the image or associated data.
+
+
+Your responses should be informative, accurate, and always prioritize the user's health and safety. Provide your analysis based solely on the visual content of the medical image, avoiding speculation beyond what is visually evident.
 """
 
     try:
-        return github_model_chat_completion(
+        # Note: For image analysis, we need a model with vision capabilities
+        # If Groq doesn't support this directly, you might need to use a different provider
+        # or extract features from the image first
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical image (converted to text description due to model limitations)"}
             ],
-            model="meta-llama/llama-3-8b-instruct",
             temperature=0.5,
-            max_tokens=1024,
-            top_p=0.9
-        ) + "\n\n*Note: This model has limited image analysis capabilities. For accurate image analysis, please consult a medical professional.*"
+            max_completion_tokens=1024,
+            top_p=0.9,
+            stream=False,
+        )
+        return completion.choices[0].message.content + "\n\n*Note: This model has limited image analysis capabilities. For accurate image analysis, please consult a medical professional.*"
     except Exception as e:
         return f"Error analyzing image: {e}"
 
@@ -255,16 +252,18 @@ Your responses should be informative, accurate, and always prioritize the user's
         context += "\n\nNote: User has also uploaded a medical image."
     
     try:
-        return github_model_chat_completion(
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="meta-llama/llama-3-8b-instruct",
             temperature=0.5,
-            max_tokens=1024,
-            top_p=0.9
+            max_completion_tokens=1024,
+            top_p=0.9,
+            stream=False,
         )
+        return completion.choices[0].message.content
     except Exception as e:
         return f"Error generating response: {e}"
 
@@ -280,7 +279,7 @@ def save_uploaded_file(uploaded_file):
 
 def main():
     # App title and description
-    st.title("🏥 HealthInsight")
+    st.title("ðŸ¥ HealthInsight")
     st.markdown("Chat with or without medical reports and images. Get insights about your health information.")
     
     # Sidebar for file uploads and settings
@@ -306,7 +305,7 @@ def main():
                     st.session_state.report_text = preprocess_text(raw_text)
                     st.session_state.uploaded_file_name = report_file.name
                     
-                    st.success(f"✅ Report loaded: {report_file.name}")
+                    st.success(f"âœ… Report loaded: {report_file.name}")
                     
                     # Show preview
                     with st.expander("Report Preview"):
@@ -320,7 +319,7 @@ def main():
                             # Add system message to chat
                             st.session_state.chat_history.append({
                                 "role": "assistant", 
-                                "content": f"📋 **Report Analysis**\n\n{analysis}"
+                                "content": f"ðŸ“‹ **Report Analysis**\n\n{analysis}"
                             })
                             st.success("Analysis complete! Check the chat area.")
                 
@@ -351,9 +350,55 @@ def main():
                             # Add system message to chat
                             st.session_state.chat_history.append({
                                 "role": "assistant", 
-                                "content": f"🖼️ **Image Analysis**\n\n{analysis}"
+                                "content": f"ðŸ–¼ï¸ **Image Analysis**\n\n{analysis}"
                             })
                             st.success("Analysis complete! Check the chat area.")
                 
                 except Exception as e:
-                    st
+                    st.error(f"Error: {str(e)}")
+        
+        # Clear button
+        if st.button("Clear All Uploads"):
+            st.session_state.report_text = None
+            st.session_state.uploaded_file_name = None
+            st.session_state.uploaded_image = None
+            st.success("All uploads cleared!")
+    
+    # Main chat interface
+    st.header("ðŸ’¬ Chat")
+    
+    # Display chat messages
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    # Chat input
+    prompt = "Ask about your health or uploaded medical information..."
+    user_message = st.chat_input(prompt)
+    
+    if user_message:
+        # Add user message to chat
+        with st.chat_message("user"):
+            st.markdown(user_message)
+        st.session_state.chat_history.append({"role": "user", "content": user_message})
+        
+        # Generate response
+        with st.spinner("Generating response..."):
+            response = chat_with_context(
+                user_message,
+                report_text=st.session_state.report_text,
+                image=st.session_state.uploaded_image
+            )
+        
+        # Display response
+        with st.chat_message("assistant"):
+            st.markdown(response)
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
+    
+    # Option to clear chat history
+    if st.session_state.chat_history and st.button("Clear Chat History"):
+        st.session_state.chat_history = []
+        st.success("Chat history cleared!")
+
+if __name__ == "__main__":
+    main()

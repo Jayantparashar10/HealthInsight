@@ -11,9 +11,9 @@ import xml.etree.ElementTree as ET
 import base64
 
 # Initialize Azure OpenAI client with environment variables or secrets
-endpoint = os.getenv("ENDPOINT_URL", st.secrets.get("ENDPOINT_URL", "https://ai-staff.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview"))
+endpoint = os.getenv("ENDPOINT_URL", st.secrets.get("ENDPOINT_URL", "https://ai-staff.openai.azure.com/"))
 deployment = os.getenv("DEPLOYMENT_NAME", st.secrets.get("DEPLOYMENT_NAME", "gpt-4o"))
-subscription_key = os.getenv("AZURE_OPENAI_API_KEY", st.secrets.get("AZURE_OPENAI_API_KEY", "20aIwWjy8Wh873W9M5OMrgm4bDhjNNoqUqmRbd4f5MPHv29I5t6PJQQJ99BBACYeBjFXJ3w3AAABACOGLVsz"))
+subscription_key = os.getenv("AZURE_OPENAI_API_KEY", st.secrets.get("AZURE_OPENAI_API_KEY", "REPLACE_WITH_YOUR_KEY_VALUE_HERE"))
 
 client = AzureOpenAI(
     azure_endpoint=endpoint,

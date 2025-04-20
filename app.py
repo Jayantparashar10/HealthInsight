@@ -13,6 +13,23 @@ import xml.etree.ElementTree as ET
 # Initialize Groq client with API key from Streamlit secrets
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
+def github_model_chat_completion(messages, temperature=0.5, max_tokens=1024, top_p=0.9):
+    url = "https://api.github.com/models/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {st.secrets['GITHUB_MODELS_TOKEN']}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    payload = {
+        "model": "azureml-meta/Llama-3-2-90B-Vision-Instruct",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "top_p": top_p
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
 # Streamlit page configuration
 st.set_page_config(page_title="HealthInsight", page_icon="ðŸ¥", layout="wide")
 
@@ -124,16 +141,14 @@ Your responses should be informative, accurate, and always prioritize the user's
 """
 
     try:
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+        return github_model_chat_completion(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}
             ],
             temperature=0.5,
-            max_completion_tokens=1024,
-            top_p=0.9,
-            stream=False,
+            max_tokens=1024,
+            top_p=0.9
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -189,16 +204,14 @@ Your responses should be informative, accurate, and always prioritize the user's
         # Note: For image analysis, we need a model with vision capabilities
         # If Groq doesn't support this directly, you might need to use a different provider
         # or extract features from the image first
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+         return github_model_chat_completion(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Please analyze this medical image (converted to text description due to model limitations)"}
+                {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}
             ],
             temperature=0.5,
-            max_completion_tokens=1024,
-            top_p=0.9,
-            stream=False,
+            max_tokens=1024,
+            top_p=0.9
         )
         return completion.choices[0].message.content + "\n\n*Note: This model has limited image analysis capabilities. For accurate image analysis, please consult a medical professional.*"
     except Exception as e:
@@ -252,16 +265,14 @@ Your responses should be informative, accurate, and always prioritize the user's
         context += "\n\nNote: User has also uploaded a medical image."
     
     try:
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+         return github_model_chat_completion(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": context}
+                {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}
             ],
             temperature=0.5,
-            max_completion_tokens=1024,
-            top_p=0.9,
-            stream=False,
+            max_tokens=1024,
+            top_p=0.9
         )
         return completion.choices[0].message.content
     except Exception as e:

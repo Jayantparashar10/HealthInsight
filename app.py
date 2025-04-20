@@ -128,7 +128,7 @@ Your responses should be informative, accurate, and always prioritize the user's
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical report and provide a comprehensive summary: " + report_text}
@@ -194,7 +194,7 @@ Your responses should be informative, accurate, and always prioritize the user's
         # If Groq doesn't support this directly, you might need to use a different provider
         # or extract features from the image first
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Please analyze this medical image (converted to text description due to model limitations)"}
@@ -259,7 +259,7 @@ Your responses should be informative, accurate, and always prioritize the user's
     
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}

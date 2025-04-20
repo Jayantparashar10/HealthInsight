@@ -230,7 +230,7 @@ def chat_with_context(message, report_text=None, image=None):
     
     try:
         completion = client.chat.completions.create(
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
